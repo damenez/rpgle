@@ -1,0 +1,74 @@
+/*********************************************************************/
+/* PROGRAM: SBSCHKSUM                                                */
+/* PURPOSE: Adhoc CLP - Get check sum of SBS files after the update. */
+/* DATE   : 19SEP2008                                                */
+/* BY     : TMPRC1                                                   */
+/*                                                                   */
+/* DATE     BY     AMENDMENT                                    REF  */
+/* -------  -----  -------------------------------------------  ---- */
+/* DDMMMYY  XXXXX   XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX  YYNN */
+/*********************************************************************/
+             PGM
+ /* Initialize variable                                             */
+             DCL        VAR(&SRCLIB) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&DTAARA) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&MSGQ)   TYPE(*CHAR) LEN(10)
+
+             MONMSG     MSGID(CPF9999)   EXEC(GOTO CMDLBL(JOB_FAIL))
+             CHGJOB     LOG(4 0 *SECLVL) LOGCLPGM(*YES)
+
+ /* Get data area                                                   */
+ STEP00:     CALL       PGM(SBSDTAARA) PARM(&DTAARA)
+             MONMSG     MSGID(CPF0000) EXEC(CHGVAR VAR(&DTAARA) +
+                        VALUE('SBSPDTAARA'))
+             RTVDTAARA  DTAARA(&DTAARA (61 10)) RTNVAR(&SRCLIB)
+
+ /* If the file already exists in QTEMP then delete                 */
+ STEP01:     CHKOBJ     OBJ(QTEMP/SBSCHKSUM) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(GOTO CMDLBL(STEP02))
+             DLTF FILE(QTEMP/SBSCHKSUM)
+
+ /* Run the SQL statement to create temporary file and get the HASH */
+ /* total of SBS-TH.                                                */
+ STEP02:     RUNSQLSTM  SRCFILE(&SRCLIB/QSBSTHSQL) +
+                          SRCMBR(SBSCHKSUM) COMMIT(*NONE) TIMFMT(*ISO)
+
+ STEP02B:    CHKOBJ     OBJ(QTEMP/LBSCHKSUM) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(GOTO CMDLBL(STEP02C))
+             DLTF FILE(QTEMP/LBSCHKSUM)
+
+ STEP02C:    RUNSQLSTM  SRCFILE(&SRCLIB/QSBSTHSQL) +
+                          SRCMBR(LBSCHKSUM) COMMIT(*NONE) TIMFMT(*ISO)
+
+ /* Create spool file on the result of Query.                       */
+ STEP03:     RUNQRY     QRYFILE((QTEMP/SBSCHKSUM)) OUTTYPE(*PRINTER)
+             RUNQRY     QRYFILE((QTEMP/LBSCHKSUM)) OUTTYPE(*PRINTER)
+
+ /* Delete file  if created in QTEMP                                */
+ STEP04:     CHKOBJ     OBJ(QTEMP/SBSCHKSUM) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(GOTO CMDLBL(STEP05))
+             DLTF FILE(QTEMP/SBSCHKSUM)
+             GOTO STEP05
+
+ STEP05:     CHKOBJ     OBJ(QTEMP/LBSCHKSUM) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(GOTO CMDLBL(JOB_END))
+             DLTF FILE(QTEMP/LBSCHKSUM)
+             GOTO JOB_END
+
+ JOB_FAIL:   CALL       PGM(SBSDTAARA)  PARM(&DTAARA)
+             MONMSG     MSGID(CPF0000)  EXEC(DO)
+                        RTVJOBA         USER(&MSGQ)
+             ENDDO
+             RTVDTAARA  DTAARA(&DTAARA  (101 10) ) RTNVAR(&MSGQ)
+             MONMSG     MSGID(CPF0000)  EXEC(DO)
+                        RTVJOBA         USER(&MSGQ)
+             ENDDO
+             IF         COND(&MSGQ = ' ') THEN(RTVJOBA USER(&MSGQ))
+             SNDPGMMSG  MSG('SBS Check Sum procedure failed. Refer to +
+                             job log for details.') TOMSGQ(&MSGQ)
+             MONMSG     MSGID(CPF2469)
+             SNDPGMMSG  MSGID(CPF9898) MSGF(QCPFMSG) MSGTYPE(*ESCAPE)
+             MONMSG     MSGID(CPF2469)
+
+ JOB_END:    DSPJOBLOG  OUTPUT(*PRINT)
+             ENDPGM

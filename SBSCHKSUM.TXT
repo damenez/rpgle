@@ -1,0 +1,35 @@
+ create table QTEMP/SBSCHKSUM
+     (
+         BASFILE         CHAR(   10),
+         INPCOL1         CHAR(   40),
+         INPHASH1        DECIMAL(20,0)
+      );
+
+ insert into QTEMP/SBSCHKSUM
+   values('SBSCOLFAC','ACCID',
+     (select sum(ACCID) FROM SBSCOLFAC));
+
+ insert into QTEMP/SBSCHKSUM
+   values('SBSDEP','DEPACCID',
+     (select sum(DEPACCID) FROM SBSDEP));
+
+ insert into QTEMP/SBSCHKSUM
+   values('SBSDRIVRS','ACCID',
+     (select sum(ACCID) FROM SBSDRIVRS));
+
+ insert into QTEMP/SBSCHKSUM
+   values('SBSSEGMENT','ACCID',
+     (select sum(ACCID) FROM SBSSEGMENT));
+
+ insert into QTEMP/SBSCHKSUM
+   values('SMECOLFAC','ACCID',
+     (select sum(ACCID) FROM SMECOLFAC));
+
+ insert into QTEMP/SBSCHKSUM
+   values('SMEDEP','ACCID',
+     (select sum(ACCID) FROM SMEDEP));
+
+ insert into QTEMP/SBSCHKSUM
+   values('SMEDRIVRS','ACCID',
+     (select sum(ACCID) FROM SMEDRIVRS));
+

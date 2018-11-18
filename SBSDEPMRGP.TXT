@@ -1,0 +1,66 @@
+     /*****************************************************************/
+     /*  Program Name: SBSDEPMRGP                                     */
+     /*  Description : SBS BRANCH MERGER(UPDATE PROGRAM - SBS TABLES) */
+     /*  Date Created: 19/09/2008                                     */
+     /*  Author      : TMPDM2                                         */
+     /*                                                               */
+     /*****************************************************************/
+     /*                                                               */
+     /*  Modification Logs:                                           */
+     /*                                                               */
+     /*  INIT  REF.#    DATE    DESCRIPTION                           */
+     /*  ----  -----  --------  ------------------------------------  */
+     /*                                                               */
+     /*                                                               */
+     /*****************************************************************/
+             PGM
+
+             DCL        VAR(&DTAARA) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&JOBNAM) TYPE(*CHAR) LEN(10) +
+                          VALUE('SBSTHA926')
+             DCL        VAR(&MSGQ)   TYPE(*CHAR) LEN(10)
+             Dcl        Var(&DATLIB)  Type(*CHAR) Len(10)
+             Dcl        Var(&SRCLIB)  Type(*CHAR) Len(10)
+             Dcl        Var(&REPLY)   Type(*CHAR) Len(1)
+             Dcl        Var(&SYSTEM)  Type(*CHAR) Len(10)
+
+             MONMSG     MSGID(CPF9999)   EXEC(GOTO CMDLBL(JOB_FAIL))
+             CHGJOB     LOG(4 0 *SECLVL) LOGCLPGM(*YES)
+
+             CALL       PGM(SBSDTAARA) PARM(&DTAARA)
+             MONMSG     MSGID(CPF0000) EXEC(CHGVAR VAR(&DTAARA) +
+                        VALUE('SBSPDTAARA'))
+             RTVDTAARA  DTAARA(&DTAARA (101 10)) RTNVAR(&MSGQ)
+
+             SNDPGMMSG  MSG(&JOBNAM || ' Job started...') TOMSGQ(&MSGQ)
+
+ ALLOCATE:   ALCOBJ     OBJ((SBSDEP *FILE *EXCLRD) (SBSCOLFAC *FILE +
+                          *EXCLRD) (SBSDRIVRS *FILE *EXCLRD)) WAIT(1)
+             MONMSG     MSGID(CPF1040) EXEC(GOTO CMDLBL(UPDATE))
+
+ UPDATE:     CALL       PGM(SBSDEPMRG)
+
+ DEALLOCATE: DLCOBJ     OBJ((SBSDEP *FILE *EXCLRD) (SBSCOLFAC *FILE +
+                          *EXCLRD) (SBSDRIVRS *FILE *EXCLRD))
+             MONMSG     MSGID(CPF1005)
+
+             GOTO       CMDLBL(EXIT)
+
+ JOB_FAIL:   CALL       PGM(SBSDTAARA)  PARM(&DTAARA)
+             MONMSG     MSGID(CPF0000)  EXEC(DO)
+                        RTVJOBA         USER(&MSGQ)
+             ENDDO
+             RTVDTAARA  DTAARA(&DTAARA  (101 10) ) RTNVAR(&MSGQ)
+             MONMSG     MSGID(CPF0000)  EXEC(DO)
+                        RTVJOBA         USER(&MSGQ)
+             ENDDO
+             IF         COND(&MSGQ = ' ') THEN(RTVJOBA USER(&MSGQ))
+             SNDPGMMSG  MSG(&JOBNAM || ' job failed!!! Refer to job +
+                          log for details.') TOMSGQ(&MSGQ)
+             MONMSG     MSGID(CPF2469)
+             SNDPGMMSG  MSGID(CPF9898) MSGF(QCPFMSG) MSGTYPE(*ESCAPE)
+             MONMSG     MSGID(CPF2469)
+
+ EXIT:       DSPJOBLOG  OUTPUT(*PRINT)
+
+             ENDPGM
